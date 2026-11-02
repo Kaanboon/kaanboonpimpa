@@ -22,8 +22,9 @@
     const cycle=soundCycle;blessingTimer=setTimeout(()=>playBlessing(cycle),1600);
   }
   function layout(){
+    pack.style.width=Math.max(110,Math.min(175,stage.clientHeight*.34))+'px';
     const h=pack.offsetHeight,start=Math.max(0,stage.clientHeight-h-12),handY=monk.offsetTop+monk.clientHeight*.74;
-    const target=Math.max(10,handY-h*.46*.60),travel=Math.max(40,start-target);
+    const target=Math.max(10,handY-h*.46*.50),travel=Math.max(0,start-target);
     pack.style.top=start+'px';pack.style.setProperty('--offering-y',(-travel*amount)+'px');pack.style.setProperty('--offering-scale',String(1-.54*amount));
   }
   function setProgress(value){
@@ -40,11 +41,14 @@
   pack.addEventListener('keydown',event=>{if(completed)return;if(['ArrowUp','ArrowRight','ArrowDown','ArrowLeft','Home','End','Enter',' '].includes(event.key)){event.preventDefault();unlockAudio();if(['Enter',' ','End'].includes(event.key))animateTo(1);else setProgress(event.key==='Home'?0:amount+(['ArrowUp','ArrowRight'].includes(event.key)?.1:-.1))}});
   giveButton.addEventListener('click',()=>{unlockAudio();animateTo(1)});soundButton.addEventListener('click',()=>{soundOn=!soundOn;try{localStorage.setItem('kb-ceremony-sound',soundOn?'on':'off')}catch(_){}if(soundOn)unlockAudio();else stopSound();soundLabel()});
   replay.addEventListener('click',()=>{soundOn=true;soundLabel();try{localStorage.setItem('kb-ceremony-sound','on')}catch(_){}stopSound();unlockAudio();playBlessing()});
+  const ground=document.createElement('div');ground.className='monk-ground';ground.setAttribute('aria-hidden','true');stage.appendChild(ground);
   const aura=document.createElement('div');aura.className='monk-aura';aura.setAttribute('aria-hidden','true');stage.appendChild(aura);
   const lotuses=document.createElement('div');lotuses.className='rising-lotuses';lotuses.setAttribute('aria-hidden','true');
   const lotusArt='<svg viewBox="0 0 64 48" xmlns="http://www.w3.org/2000/svg" focusable="false"><path d="M32 38C17 30 18 15 32 3c14 12 15 27 0 35Z"/><path d="M31 40C14 42 4 29 5 14c18 1 26 12 26 26Zm2 0c17 2 27-11 26-26-18 1-26 12-26 26Z"/><path d="M32 43C17 48 6 42 1 31c15-5 25-1 31 12Zm0 0c15 5 26-1 31-12-15-5-25-1-31 12Z"/></svg>';
   for(let i=0;i<14;i++){const flower=document.createElement('i');flower.className='rising-lotus';flower.innerHTML=lotusArt;flower.style.setProperty('--lotus-x',(3+(i*29)%84)+'%');flower.style.setProperty('--lotus-size',(48+(i*13)%38)+'px');flower.style.setProperty('--lotus-time',(4.5+(i%4)*.4)+'s');flower.style.setProperty('--lotus-delay',((i%7)*.38)+'s');flower.style.setProperty('--lotus-drift',((i%2?1:-1)*(15+i%5*5))+'px');flower.style.setProperty('--lotus-rise',(230+i%5*30)+'px');lotuses.appendChild(flower)}stage.appendChild(lotuses);
   for(let i=0;i<16;i++){const spark=document.createElement('i');spark.className='merit-spark';spark.setAttribute('aria-hidden','true');spark.style.setProperty('--x',(12+(i*37)%77)+'%');spark.style.setProperty('--y',(16+(i*23)%70)+'%');spark.style.setProperty('--duration',(2+i%4)+'s');stage.appendChild(spark)}
   monk.addEventListener('load',layout);pack.querySelector('.package-photo').addEventListener('load',layout);
+  window.addEventListener?.('resize',layout);
+  if(typeof ResizeObserver==='function'){const observer=new ResizeObserver(layout);observer.observe(stage);observer.observe(monk)}
   window.kbCeremony={setProgress,stopSound,reset(){cancelAnimationFrame(frame);drag=null;stopSound();completed=false;setProgress(0)}};soundLabel();
 })();
