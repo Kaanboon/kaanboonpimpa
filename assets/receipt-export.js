@@ -1,0 +1,6 @@
+(()=>{'use strict';
+ let renderer;
+ function loadRenderer(){if(window.htmlToImage)return Promise.resolve(window.htmlToImage);if(renderer)return renderer;renderer=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=new URL('assets/html-to-image.js',document.baseURI).href;script.onload=()=>window.htmlToImage?resolve(window.htmlToImage):reject(Error('Image renderer unavailable'));script.onerror=()=>{renderer=null;script.remove();reject(Error('Image renderer could not load'))};document.head.appendChild(script)});return renderer}
+ async function capture(){const card=document.querySelector('.receipt-artwork');if(!card||!card.offsetWidth||!card.offsetHeight)throw Error('No visible receipt');await window.KBMeritCard.readyFonts();await Promise.all([...card.querySelectorAll('img')].map(image=>image.decode()));const draw=await loadRenderer(),width=card.offsetWidth,height=card.offsetHeight;const canvas=await draw.toCanvas(card,{width,height,pixelRatio:Math.min(3,Math.max(2,1600/width)),preferredFontFormat:'truetype',cacheBust:false,style:{transform:'none',margin:'0',transition:'none',animation:'none'}});if(!canvas.width||!canvas.height)throw Error('Empty card');return canvas}
+ window.KBReceiptExport={capture};
+})();

@@ -42,7 +42,7 @@ body.golden-journey[data-view=home]{background:#fbf7ef;color:#44301e}.original-h
 
 :root{--bridge-landscape:url('golden-merit-bridge.png');--souvenir-pattern:url('merit-card-pattern.svg')}
 
-.quantity-limit{font-size:11px;line-height:1.9;text-align:center;padding:10px 12px;border:1px solid #d1ae6380;border-radius:12px;background:#fff4d9a0;color:#845d27}.journey-quantity button:disabled,.product-pick:disabled{opacity:.4;cursor:not-allowed}
+.journey-panel>.quantity-limit{margin:12px 0 0}.quantity-limit{font-size:11px;line-height:1.9;text-align:center;padding:10px 12px;border:1px solid #d1ae6380;border-radius:12px;background:#fff4d9a0;color:#845d27}.journey-quantity button:disabled,.product-pick:disabled{opacity:.4;cursor:not-allowed}
 
 /* Footer uses the same columns as the payment workspace, rather than a separate max width. */
 .journey-bottom-grid{display:grid;grid-template-columns:minmax(240px,.8fr) minmax(550px,1.4fr);column-gap:40px}.journey-bottom-grid>.journey-bottom{grid-column:2;max-width:none;width:100%;box-sizing:border-box;margin:20px 0 0}
