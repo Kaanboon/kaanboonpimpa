@@ -41,3 +41,12 @@ body.golden-journey[data-view=home]{background:#fbf7ef;color:#44301e}.original-h
 @media(prefers-reduced-motion:reduce){.original-homepage .bridge-entry{transition:none}.original-homepage .bridge-entry:hover{transform:none}}
 
 :root{--bridge-landscape:url('golden-merit-bridge.png');--souvenir-pattern:url('merit-card-pattern.svg')}
+
+.quantity-limit{font-size:11px;line-height:1.9;text-align:center;padding:10px 12px;border:1px solid #d1ae6380;border-radius:12px;background:#fff4d9a0;color:#845d27}.journey-quantity button:disabled,.product-pick:disabled{opacity:.4;cursor:not-allowed}
+
+/* Footer uses the same columns as the payment workspace, rather than a separate max width. */
+.journey-bottom-grid{display:grid;grid-template-columns:minmax(240px,.8fr) minmax(550px,1.4fr);column-gap:40px}.journey-bottom-grid>.journey-bottom{grid-column:2;max-width:none;width:100%;box-sizing:border-box;margin:20px 0 0}
+.qr-action-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%;max-width:420px;margin:12px auto}.journey-qr .qr-action-pair>*{box-sizing:border-box;width:100%;min-height:48px;margin:0;padding:8px 10px;display:flex;align-items:center;justify-content:center;border:1px solid #d4ae65;border-radius:25px;font:400 10px/1.6 'KB Prompt',sans-serif;text-align:center;white-space:normal;background:#fffaf0;color:#91652d}.journey-qr{box-sizing:border-box}.journey-qr>p:last-child{margin-top:14px}
+.ceremony-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch!important;gap:12px!important;max-width:480px;width:100%;margin:18px auto!important}.ceremony-actions>#ceremonyGive,.ceremony-actions>#ceremonySound{box-sizing:border-box;width:100%;min-width:0;min-height:48px;margin:0;padding:10px 12px;display:flex;align-items:center;justify-content:center;font-family:'KB Prompt',sans-serif;font-size:12px;line-height:1.7;border-radius:26px;white-space:normal}
+@media(max-width:1000px) and (min-width:761px){.journey-bottom-grid{grid-template-columns:minmax(170px,.6fr) minmax(460px,1.4fr);column-gap:20px}}
+@media(max-width:760px){.journey-bottom-grid{display:block}.journey-bottom-grid>.journey-bottom{position:sticky;inset:auto;max-width:none;width:100%;margin:16px 0 0}.journey-flow{padding-bottom:35px}.journey-qr .qr-action-pair>*{font-size:9px;min-height:48px;padding:7px 5px}.ceremony-actions{gap:8px!important;max-width:420px}.ceremony-actions>#ceremonyGive,.ceremony-actions>#ceremonySound{font-size:10px;min-height:48px;padding:9px 7px}}
