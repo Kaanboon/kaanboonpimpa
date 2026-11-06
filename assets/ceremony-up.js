@@ -22,16 +22,15 @@
     const cycle=soundCycle;blessingBusy=true;replay.disabled=true;replay.setAttribute('aria-busy','true');replay.textContent='รอรับพร…';blessingTimer=setTimeout(()=>playBlessing(cycle,true),1600);
   }
   function layout(){
-    pack.style.width=Math.max(110,Math.min(175,stage.clientHeight*.34))+'px';
-    const h=pack.offsetHeight,start=Math.max(0,stage.clientHeight-h-12),handY=monk.offsetTop+monk.clientHeight*.74;
-    const target=Math.max(10,handY-h*.46*.50),travel=Math.max(0,start-target);
-    pack.style.top=start+'px';pack.style.setProperty('--offering-y',(-travel*amount)+'px');pack.style.setProperty('--offering-scale',String(1-.54*amount));
+    pack.style.width=Math.max(82,Math.min(175,stage.clientWidth*.19))+'px';
+    const h=pack.offsetHeight,start=stage.clientHeight*.99-h,travel=stage.clientHeight*.12;
+    pack.style.top=start+'px';pack.style.setProperty('--offering-y',(-travel*amount)+'px');pack.style.setProperty('--offering-scale',String(1-.25*amount));
   }
   function setProgress(value){
     if(completed)return;
     amount=Math.min(1,Math.max(0,Number(value)||0));slider.value=String(Math.round(amount*100));pack.setAttribute('aria-valuenow',slider.value);pack.setAttribute('aria-valuetext',amount===1?'ถึงจุดถวายแล้ว':'ความคืบหน้า '+slider.value+' เปอร์เซ็นต์');progressFill.style.width=slider.value+'%';layout();
     const done=amount>=1;stage.classList.toggle('complete',done);find('ceremonyFinish').disabled=!done;giveButton.disabled=done;
-    find('simulationTitle').textContent=done?'ขออนุโมทนาบุญ':'ร่วมถวายด้วยใจ';find('simulationMessage').textContent=done?'ขออนุโมทนาในความตั้งใจของท่าน':'ปัดชุดธูปขึ้น เพื่อยื่นถวายตรงหน้า';find('ceremonyPrompt').textContent=done?'สาธุ ขอให้ท่านและครอบครัวพบความสุขและความเป็นสิริมงคล':'แตะที่ชุดธูปแล้วปัดขึ้น หรือกดปุ่มยื่นถวาย';
+    find('simulationTitle').textContent=done?'ขออนุโมทนาบุญ':'ร่วมถวายด้วยใจ';find('simulationMessage').textContent=done?'ขออนุโมทนาในความตั้งใจของท่าน':'ปัดชุดธูปขึ้น เพื่อวางบนแท่นถวาย';find('ceremonyPrompt').textContent=done?'สาธุ ขอให้ท่านและครอบครัวพบความสุขและความเป็นสิริมงคล':'ปัดชุดธูปขึ้น หรือกดปุ่มยื่นถวายได้เลย';
     if(done){completed=true;drag=null;slider.disabled=true;pack.setAttribute('aria-disabled','true');ringBell()}
   }
   function animateTo(end){if(completed)return;cancelAnimationFrame(frame);const from=amount,start=performance.now(),duration=reduced?0:850;function tick(now){const t=duration?Math.min(1,(now-start)/duration):1;setProgress(from+(end-from)*(1-Math.pow(1-t,3)));if(t<1&&!completed)frame=requestAnimationFrame(tick)}frame=requestAnimationFrame(tick)}
