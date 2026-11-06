@@ -64,3 +64,23 @@
 .portal-grand .grand-aperture .grand-seam{top:0;bottom:0;z-index:1}
 .portal-grand .grand-aperture .grand-leaves{z-index:2}
 .portal-grand .grand-bloom,.portal-grand .grand-flash{display:none!important}
+
+/* One continuous approach, no mid-camera plateaus, back-face pop or full-screen flash. */
+.portal-grand{--gate-duration:5.4s}
+.portal-grand::backdrop{background:transparent}
+.portal-grand .grand-camera{transform-origin:50% var(--portal-origin-y,66%);transform:translate3d(0,0,0);will-change:transform}
+.portal-grand .grand-gate{filter:none;transform:translateZ(0)}
+.portal-grand .grand-gate-frame{transform:translateZ(0)}
+.portal-grand.entering .grand-camera{animation:portalApproach 5.4s cubic-bezier(.55,.02,.24,1) both}
+.portal-grand.entering .leaf-left{animation:portalDoorLeft 3.1s cubic-bezier(.28,0,.2,1) .18s both}
+.portal-grand.entering .leaf-right{animation:portalDoorRight 3.1s cubic-bezier(.28,0,.2,1) .18s both}
+.portal-grand.entering .grand-beyond{animation:none;filter:none;background-size:cover}
+.portal-grand.entering .grand-seam{animation:none;opacity:.7;transform:none}
+.portal-grand.entering .grand-copy{animation:portalCaption 2.6s ease both;will-change:opacity}
+.portal-grand.entering{animation:portalDissolve 5.4s ease-in-out both;will-change:opacity}
+@keyframes portalApproach{from{transform:translate3d(0,0,0) scale(.96)}to{transform:translate3d(0,var(--portal-pan-y,0px),0) scale(4.4)}}
+@keyframes portalDoorLeft{from{transform:rotateY(0deg)}to{transform:rotateY(-86deg)}}
+@keyframes portalDoorRight{from{transform:rotateY(0deg)}to{transform:rotateY(86deg)}}
+@keyframes portalCaption{0%,28%{opacity:1}100%{opacity:0}}
+@keyframes portalDissolve{0%,72%{opacity:1}100%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.portal-grand.entering,.portal-grand.entering *{animation:none!important;will-change:auto}}
