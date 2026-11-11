@@ -8,3 +8,15 @@
 .receipt-artwork .receipt-blessing{font-family:'KB Maitree',serif;font-weight:500;font-size:clamp(17px,2.1vw,22px);line-height:1.95;color:#9c7133;margin:15px auto 5px;padding:0;max-width:650px}
 .receipt-panel .prototype-notice{margin:21px auto 18px;max-width:620px}.receipt-panel .receipt-actions{margin-top:8px}.receipt-panel .receipt-privacy{font-size:9px}.receipt-panel .souvenir-studio{margin-top:24px}
 @keyframes receiptMonkFloat{50%{transform:translateY(-4px)}}@media(max-width:760px){.receipt-panel{padding:10px 10px 25px}.receipt-artwork{padding:210px 17px 25px;border-radius:19px}.receipt-artwork .receipt-mark{width:80px;left:7px;top:159px}.receipt-artwork>.panel-kicker{font-size:14px}.receipt-artwork>h2{font-size:31px}.receipt-artwork .receipt-name{font-size:22px;line-height:2.1}.receipt-artwork .receipt-summary{font-size:10px;padding-inline:0}.receipt-artwork .receipt-blessing{font-size:17px}.receipt-scenery img{animation:none}}@media(prefers-reduced-motion:reduce){.receipt-scenery img{animation:none}}
+
+/* Measure the desktop artwork off-screen even when the visible card uses mobile styles. */
+.receipt-export-panel{position:fixed;left:-10000px;top:0;width:966px;max-width:none;padding:0!important;visibility:hidden;pointer-events:none;-webkit-text-size-adjust:none;text-size-adjust:none}
+.receipt-artwork.receipt-export{width:100%;padding:220px 35px 32px;border-radius:22px;transform:none;transition:none}
+.receipt-artwork.receipt-export .receipt-mark{width:125px;left:17px;top:153px}
+.receipt-artwork.receipt-export>.panel-kicker{font-size:17px}
+.receipt-artwork.receipt-export>h2{font-size:46px}
+.receipt-artwork.receipt-export .receipt-name{font-size:30px}
+.receipt-artwork.receipt-export .receipt-summary{font-size:11px;padding-inline:14px}
+.receipt-artwork.receipt-export .receipt-blessing{font-size:22px}
+.receipt-artwork.receipt-export .festival-card-badge{font-size:10px}
+.receipt-artwork.receipt-export .receipt-gift-caption{font-size:19px}
