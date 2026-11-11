@@ -105,11 +105,15 @@
     return lines;
   }
 
-  function paintText(ctx, element, bounds, art) {
+  function paintText(ctx, element, bounds, art, preserveLineBreaks = false) {
     if (!element || element.hidden || !element.textContent.trim()) return;
     const style = getComputedStyle(element);
     const box = element.getBoundingClientRect();
-    const lines = textLines(element, art.graphemes);
+    // Safari can report the previous row for the first Thai glyph after a newline.
+    // The receipt summary already supplies its rows explicitly.
+    const lines = preserveLineBreaks
+      ? element.textContent.split(/\r?\n/).map((text, row) => ({ text, top: row * parseFloat(style.lineHeight) }))
+      : textLines(element, art.graphemes);
     if (!lines.length) return;
 
     // A zero-height inline block gives the browser's first text baseline.
@@ -128,8 +132,9 @@
       ctx.shadowColor = '#fff1ae';
       ctx.shadowBlur = 20;
     }
+    const maxWidth = preserveLineBreaks ? box.width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) : box.width;
     for (const line of lines) {
-      art.centerText(ctx, line.text.trim(), box.left - bounds.left + box.width / 2, baseline + line.top - lines[0].top, box.width);
+      art.centerText(ctx, line.text.trim(), box.left - bounds.left + box.width / 2, baseline + line.top - lines[0].top, maxWidth);
     }
     ctx.restore();
   }
@@ -208,9 +213,11 @@
       ctx.fillRect(left, top, summary.width, 1);
       ctx.fillRect(left, top + summary.height - 1, summary.width, 1);
 
-      for (const selector of ['.receipt-scenery span', '.festival-card-badge', '.panel-kicker', 'h2', '.receipt-name', '.receipt-gift-caption', '.receipt-summary', '.receipt-blessing']) {
+      for (const selector of ['.receipt-scenery span', '.festival-card-badge', '.panel-kicker', 'h2', '.receipt-name', '.receipt-gift-caption']) {
         paintText(ctx, card.querySelector(selector), bounds, art);
       }
+      paintText(ctx, card.querySelector('.receipt-summary'), bounds, art, true);
+      paintText(ctx, card.querySelector('.receipt-blessing'), bounds, art);
       paintPetals(ctx, width, height);
 
       ctx.globalCompositeOperation = 'screen';
