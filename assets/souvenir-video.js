@@ -166,17 +166,9 @@
 
     context.fillStyle = '#fff4dd';
     if (showName && data.name) {
-      const name = String(data.name).trim();
-      let size = 38;
-      let lines;
-      do {
-        context.font = `500 ${size}px "KB Maitree"`;
-        lines = window.KBMeritCard.wrap(context, name, 548);
-        if (lines.length * size * 1.28 <= 150) break;
-        size -= 2;
-      } while (size >= 16);
-      const visibleLines = lines.slice(0, 7);
-      visibleLines.forEach((line, i) => center(line, 936 + (i - (visibleLines.length - 1) / 2) * size * 1.28, 550));
+      const { lines, size } = data.videoNames || window.KBMeritCard.videoNameLayout(context, data.name);
+      context.font = `500 ${size}px "KB Maitree"`;
+      lines.forEach((line, i) => center(line, 936 + (i - (lines.length - 1) / 2) * size * 1.28, 550));
     } else {
       context.font = '500 34px "KB Maitree"';
       center('ทุกความตั้งใจ มีเส้นทางส่งต่อ', 936, 560);
@@ -378,6 +370,7 @@
       canvas.width = width;
       canvas.height = height;
       const context = canvas.getContext('2d');
+      if (showName && data.name) data.videoNames = window.KBMeritCard.videoNameLayout(context, data.name);
       const drawFrame = fraction => draw(context, { bridge, logo, monk }, data, fraction, showName, voiceDuration);
       drawFrame(0);
       stream = canvas.captureStream(24);
@@ -440,9 +433,17 @@
   });
   window.addEventListener('kb:order-saved', () => {
     activeJob?.abort('');
+    $('shareShowName').checked = false;
     clearResult();
     progress.textContent = '';
   });
+  function refreshVideoName() {
+    if (activeJob) activeJob.abort('เปลี่ยนชื่อที่แสดงแล้ว กดสร้างวิดีโอใหม่');
+    clearResult();
+    progress.textContent = '';
+  }
+  window.addEventListener('kb:souvenir-name-changed', refreshVideoName);
+  $('shareShowName').addEventListener('change', refreshVideoName);
 
   window.KBSouvenirVideo = { draw };
 })();

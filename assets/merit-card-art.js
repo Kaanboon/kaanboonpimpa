@@ -11,6 +11,34 @@
   const congratulations=['ขออนุโมทนาในกุศลจิตครั้งนี้','ขอให้ท่านและครอบครัวมีความสุขและความเป็นสิริมงคล'];
   function graphemes(text){return typeof Intl.Segmenter==='function'?[...new Intl.Segmenter('th',{granularity:'grapheme'}).segment(text)].map(s=>s.segment):Array.from(text).reduce((a,c)=>{if(/\p{Mark}/u.test(c)&&a.length)a[a.length-1]+=c;else a.push(c);return a},[])}
   function wrap(context,text,width){let line='',lines=[];for(const char of graphemes(String(text).replace(/\s+/gu,' ').trim())){if(line&&context.measureText(line+char).width>width){lines.push(line.trim());line=char.trimStart()}else line+=char}if(line)lines.push(line.trim());return lines.length?lines:['']}
+  function donorNames(text){
+    const groups=String(text??'').split(/[,;，；\r\n]+|\s+(?:และ|&)\s+/u).map(name=>name.trim().replace(/\s+/gu,' ')).filter(Boolean);
+    if(groups.length!==1)return groups;
+    const words=groups[0].split(' ');
+    // Older orders often put Thai full names in one line, separated only by spaces.
+    const titles=/^(?:นาย|นาง|นางสาว|น\.?ส\.?|เด็กชาย|เด็กหญิง|ด\.?ช\.?|ด\.?ญ\.?|คุณ)$/u;
+    const thaiWords=words.every(word=>/^[\p{Script=Thai}\p{Mark}.'’-]+$/u.test(word));
+    if(!thaiWords)return groups;
+    const parts=[];
+    for(let i=0;i<words.length;i++){
+      if(titles.test(words[i])&&words[i+1])parts.push(words[i]+' '+words[++i]);
+      else parts.push(words[i]);
+    }
+    if(parts.length<4||parts.length%2||parts.some((part,i)=>i%2&&part.includes(' ')))return groups;
+    const names=[];
+    for(let i=0;i<parts.length;i+=2)names.push(parts[i]+' '+parts[i+1]);
+    return names;
+  }
+  function videoNameLayout(context,text){
+    const names=donorNames(text);
+    const namesPerLine=Math.max(1,Math.ceil(names.length/7));
+    const lines=[];
+    for(let i=0;i<names.length;i+=namesPerLine)lines.push(names.slice(i,i+namesPerLine).join(' · '));
+    context.font='500 38px "KB Maitree"';
+    const longest=Math.max(1,...lines.map(line=>context.measureText(line).width));
+    const size=Math.max(16,Math.floor(Math.min(38,150/(Math.max(1,lines.length)*1.28),38*548/longest)));
+    return{lines,size};
+  }
   function nameLayout(context,text){let size=62,lines;do{context.font=`500 ${size}px "KB Maitree"`;lines=wrap(context,text,1060);if(lines.length*size*1.8<=170)break;size-=2}while(size>20);return{size,lines,lineHeight:size*1.8}}
   function rounded(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
   function cover(c,img,x,y,w,h){const scale=Math.max(w/img.width,h/img.height),sw=w/scale,sh=h/scale;c.drawImage(img,(img.width-sw)/2,(img.height-sh)/2,sw,sh,x,y,w,h)}
@@ -28,5 +56,5 @@
     c.fillStyle='#91652a';c.font='500 32px "KB Maitree"';congratulations.forEach((line,i)=>centerText(c,line,800,924+i*54,1060));decorLotus(c,1375,1037,160,.8);decorLotus(c,1466,1075,95,.4);decorLotus(c,233,1050,118,.72);
     c.fillStyle='#795c34';c.font='400 22px "KB Prompt"';centerText(c,'kaanboon.github.io/kaanboonpimpa',800,1090);c.font='400 17px "KB Prompt"';centerText(c,options.orderId?'เลขคำสั่งซื้อ '+options.orderId+' · ติดตามการถวายจริงได้บนเว็บไซต์':'ที่ระลึกจากการร่วมถวายด้วยใจ · ติดตามการถวายจริงได้บนเว็บไซต์',800,1133);return{name:layout,width:1600,height:1200};
   }
-  const api={draw:drawLuminous,centerText,readyFonts,wrap,nameLayout,graphemes,congratulations,lotus};if(typeof module!=='undefined')module.exports=api;else root.KBMeritCard=api;
+  const api={draw:drawLuminous,centerText,readyFonts,wrap,nameLayout,donorNames,videoNameLayout,graphemes,congratulations,lotus};if(typeof module!=='undefined')module.exports=api;else root.KBMeritCard=api;
 })(typeof window!=='undefined'?window:this);

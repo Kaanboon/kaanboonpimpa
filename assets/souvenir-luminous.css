@@ -20,3 +20,55 @@
 .receipt-artwork.receipt-export .receipt-blessing{font-size:22px}
 .receipt-artwork.receipt-export .festival-card-badge{font-size:10px}
 .receipt-artwork.receipt-export .receipt-gift-caption{font-size:19px}
+
+.souvenir-resume,.souvenir-edit-link{
+  min-height:44px;
+  padding:7px 12px;
+  border:0;
+  background:none;
+  color:#6c4314;
+  font:500 14px/1.6 'KB Prompt',sans-serif;
+  text-decoration:underline;
+  text-underline-offset:4px;
+  cursor:pointer;
+}
+.souvenir-resume{
+  margin-top:10px;
+  padding-inline:15px;
+  border:1px solid #d9b571;
+  border-radius:20px;
+  background:#fff8e6;
+}
+.souvenir-edit-link{margin-top:7px}
+.souvenir-edit-dialog{
+  box-sizing:border-box;
+  width:min(480px,calc(100% - 32px));
+  margin:auto;
+  padding:clamp(20px,5vw,29px);
+  border:1px solid #d9b571;
+  border-radius:22px;
+  background:#fff9eb;
+  color:#634318;
+  font-family:'KB Prompt',sans-serif;
+}
+.souvenir-edit-dialog::backdrop{background:#2c1d1570}
+.souvenir-edit-dialog h2{margin:0;color:#684112;font-size:clamp(20px,5vw,24px);line-height:1.5}
+.souvenir-edit-dialog p{margin:8px 0 14px;font-size:14px;line-height:1.65}
+.souvenir-edit-dialog label{display:block;margin-bottom:6px;font-size:15px;font-weight:500}
+.souvenir-edit-dialog textarea{
+  box-sizing:border-box;
+  width:100%;
+  padding:11px;
+  border:1px solid #cfad74;
+  border-radius:12px;
+  background:#fffdf8;
+  color:inherit;
+  font:400 16px/1.65 'KB Prompt',sans-serif;
+  resize:vertical;
+}
+.souvenir-edit-dialog small{display:block;margin-top:6px;font-size:12px;line-height:1.65}
+.souvenir-edit-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.souvenir-edit-actions button{min-height:44px;padding:8px 16px;font-size:14px}
+.souvenir-order-help{margin-top:16px;padding-top:7px;border-top:1px solid #e4c78e;overflow-wrap:anywhere}
+.souvenir-order-help p{margin-bottom:5px}
+.souvenir-order-help a{color:inherit;font-size:14px;text-underline-offset:3px}

@@ -213,9 +213,10 @@
       ctx.fillRect(left, top, summary.width, 1);
       ctx.fillRect(left, top + summary.height - 1, summary.width, 1);
 
-      for (const selector of ['.receipt-scenery span', '.festival-card-badge', '.panel-kicker', 'h2', '.receipt-name', '.receipt-gift-caption']) {
+      for (const selector of ['.receipt-scenery span', '.festival-card-badge', '.panel-kicker', 'h2', '.receipt-gift-caption']) {
         paintText(ctx, card.querySelector(selector), bounds, art);
       }
+      paintText(ctx, card.querySelector('.receipt-name'), bounds, art, true);
       paintText(ctx, card.querySelector('.receipt-summary'), bounds, art, true);
       paintText(ctx, card.querySelector('.receipt-blessing'), bounds, art);
       paintPetals(ctx, width, height);
