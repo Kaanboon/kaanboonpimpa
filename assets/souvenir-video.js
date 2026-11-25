@@ -6,6 +6,13 @@
   const intro = 0.8;
   const outro = 2;
   const defaultDuration = 34.0375;
+  const mp4Type = 'video/mp4';
+  const mp4RecordingTypes = [
+    'video/mp4;codecs=avc1.42E01F',
+    'video/mp4;codecs=avc1',
+    mp4Type
+  ];
+  const incompatibleBrowser = 'เบราว์เซอร์นี้สร้าง MP4 พร้อมเสียงไม่ได้ กรุณาเปิดเว็บด้วย Safari หรือ Chrome เวอร์ชันล่าสุดแล้วลองใหม่';
   const $ = id => document.getElementById(id);
   const button = $('createMeritVideo');
   const cancel = $('cancelMeritVideo');
@@ -201,11 +208,47 @@
     download.hidden = share.hidden = true;
   }
 
-  async function fetchVoice(audio, signal) {
-    const response = await fetch('assets/blessing-video-voice.mp3', { signal });
+  async function fetchVoice(signal) {
+    const response = await fetch('assets/blessing-video-voice.m4a', { signal });
     if (!response.ok) throw Error('โหลดเสียงพรไม่สำเร็จ กรุณาลองใหม่');
-    const bytes = await response.arrayBuffer();
-    return audio.decodeAudioData(bytes);
+    return response.blob();
+  }
+
+  async function combineVideoAndVoice(media, recordedVideo, voiceTrack, signal) {
+    const { Input, BlobSource, MP4, Output, Mp4OutputFormat, BufferTarget,
+      EncodedVideoPacketSource, EncodedAudioPacketSource, EncodedPacketSink } = media;
+    const input = new Input({ formats: [MP4], source: new BlobSource(recordedVideo) });
+    const target = new BufferTarget();
+    const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target });
+
+    async function copyTrack(track, source) {
+      let metadata = { decoderConfig: await track.getDecoderConfig() };
+      for await (const packet of new EncodedPacketSink(track).packets()) {
+        signal.throwIfAborted();
+        await source.add(packet, metadata);
+        metadata = undefined;
+      }
+      source.close();
+    }
+
+    try {
+      const videoTrack = await input.getPrimaryVideoTrack();
+      if (await videoTrack?.getCodec() !== 'avc') throw Error(incompatibleBrowser);
+      const video = new EncodedVideoPacketSource('avc');
+      const audio = new EncodedAudioPacketSource('aac');
+      output.addVideoTrack(video);
+      output.addAudioTrack(audio);
+      await output.start();
+      await Promise.all([copyTrack(videoTrack, video), copyTrack(voiceTrack, audio)]);
+      signal.throwIfAborted();
+      await output.finalize();
+      return target.buffer;
+    } catch (error) {
+      await output.cancel().catch(() => {});
+      throw error;
+    } finally {
+      input.dispose();
+    }
   }
 
   async function startRecorder(stream, types, signal, drawFirstFrame) {
@@ -213,7 +256,7 @@
       if (signal.aborted) return null;
       let recorder;
       try {
-        recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 3000000, audioBitsPerSecond: 128000 });
+        recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 3000000 });
         const chunks = [];
         let resolveStart;
         const started = new Promise(resolve => { resolveStart = resolve; });
@@ -228,10 +271,10 @@
           };
           recorder.onerror = () => {
             resolveStart(false);
-            resolve(Error('บันทึกวิดีโอพร้อมเสียงไม่สำเร็จ'));
+            resolve(Error('บันทึกภาพวิดีโอไม่สำเร็จ กรุณาลองใหม่'));
           };
         });
-        recorder.start(250);
+        recorder.start();
         let frame;
         const paint = () => {
           drawFirstFrame(0);
@@ -249,17 +292,17 @@
           cancelAnimationFrame(frame);
           signal.removeEventListener('abort', abort);
         }
-        if (ready) return { recorder, chunks, stopped, mimeType };
+        if (ready) return { recorder, chunks, stopped };
       } catch {
         // A codec can be advertised even when the device cannot start its encoder.
       }
       if (recorder?.state === 'recording') recorder.stop();
     }
     if (signal.aborted) return null;
-    throw Error('เบราว์เซอร์นี้เริ่มบันทึกวิดีโอพร้อมเสียงไม่สำเร็จ');
+    throw Error(incompatibleBrowser);
   }
 
-  function animate(audio, start, duration, signal, render) {
+  function animate(start, duration, signal, render) {
     return new Promise((resolve, reject) => {
       let frame;
       let lastPercent = -1;
@@ -268,9 +311,9 @@
         signal.removeEventListener('abort', stop);
         resolve();
       }
-      function tick() {
+      function tick(now) {
         try {
-          const fraction = Math.min(1, Math.max(0, (audio.currentTime - start) / duration));
+          const fraction = Math.min(1, Math.max(0, (now - start) / (duration * 1000)));
           render(fraction);
           const percent = Math.floor(fraction * 100);
           if (percent !== lastPercent) {
@@ -298,7 +341,7 @@
     cancel.hidden = false;
     clearResult();
     progress.textContent = 'กำลังเตรียมภาพและเสียงพร…';
-    let audio;
+    let voiceInput;
     let stream;
     let recorder;
 
@@ -307,27 +350,27 @@
     }
     document.addEventListener('visibilitychange', onVisibility);
     try {
-      const Audio = window.AudioContext || window.webkitAudioContext;
-      if (!Audio || !window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
-        throw Error('เบราว์เซอร์นี้ยังบันทึกวิดีโอพร้อมเสียงไม่ได้');
+      if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
+        throw Error(incompatibleBrowser);
       }
-      const recordingTypes = [
-        'video/webm;codecs=vp8,opus',
-        'video/webm;codecs=vp9,opus',
-        'video/webm',
-        'video/mp4;codecs=avc1.42001f,mp4a.40.2',
-        'video/mp4'
-      ].filter(type => MediaRecorder.isTypeSupported(type));
-      if (!recordingTypes.length) throw Error('เบราว์เซอร์นี้ไม่รองรับชนิดไฟล์วิดีโอ');
-      audio = new Audio();
-      const [voice, bridge, logo, monk] = await Promise.all([
-        fetchVoice(audio, signal),
+      const recordingTypes = mp4RecordingTypes.filter(type => MediaRecorder.isTypeSupported(type));
+      if (!recordingTypes.length) throw Error(incompatibleBrowser);
+      const [media, voice, bridge, logo, monk] = await Promise.all([
+        import('./mediabunny-1.61.6.min.js'),
+        fetchVoice(signal),
         loadImage('assets/golden-merit-bridge.png'),
         loadImage('assets/brand-logo.png'),
         loadImage('assets/blessing-video-monk.png'),
-        window.KBMeritCard.readyFonts(),
-        audio.resume()
+        window.KBMeritCard.readyFonts()
       ]);
+      if (signal.aborted) return;
+      // The audio already contains the opening and closing silence. Copying it avoids browser AAC encoders.
+      voiceInput = new media.Input({ formats: [media.MP4], source: new media.BlobSource(voice) });
+      const voiceTrack = await voiceInput.getPrimaryAudioTrack();
+      if (await voiceTrack?.getCodec() !== 'aac') throw Error('อ่านไฟล์เสียงพรไม่สำเร็จ');
+      const duration = await voiceTrack.computeDuration();
+      if (!Number.isFinite(duration) || duration <= intro + outro) throw Error('อ่านไฟล์เสียงพรไม่สำเร็จ');
+      const voiceDuration = duration - intro - outro;
       if (signal.aborted) return;
       const data = { ...window.KBBridge.snapshot(), festival: window.KBFestival?.current() };
       const showName = $('shareShowName').checked;
@@ -335,28 +378,18 @@
       canvas.width = width;
       canvas.height = height;
       const context = canvas.getContext('2d');
-      const drawFrame = fraction => draw(context, { bridge, logo, monk }, data, fraction, showName, voice.duration);
+      const drawFrame = fraction => draw(context, { bridge, logo, monk }, data, fraction, showName, voiceDuration);
       drawFrame(0);
-      const destination = audio.createMediaStreamDestination();
-      const silence = audio.createConstantSource();
-      silence.offset.value = 0;
-      silence.connect(destination);
-      silence.start();
-      const source = audio.createBufferSource();
-      source.buffer = voice;
-      source.connect(destination);
       stream = canvas.captureStream(24);
-      destination.stream.getAudioTracks().forEach(track => stream.addTrack(track));
 
       const recording = await startRecorder(stream, recordingTypes, signal, drawFrame);
       if (!recording) return;
       ({ recorder } = recording);
       if (signal.aborted) return;
-      const { chunks, stopped, mimeType } = recording;
-      const start = audio.currentTime + .07;
-      source.start(start + intro);
-      const rendering = animate(audio, start, intro + voice.duration + outro, signal, drawFrame);
-      const error = await Promise.race([rendering.then(() => null), stopped]);
+      const { chunks, stopped } = recording;
+      const rendering = animate(performance.now(), duration, signal, drawFrame);
+      const unexpectedStop = stopped.then(error => error || Error('การบันทึกวิดีโอหยุดก่อนจบ กรุณาลองใหม่'));
+      const error = await Promise.race([rendering.then(() => null), unexpectedStop]);
       if (error) {
         job.abort();
         throw error;
@@ -366,16 +399,19 @@
       if (finalError) throw finalError;
       if (signal.aborted) return;
 
-      const type = (recorder.mimeType || mimeType).split(';')[0];
-      const extension = type === 'video/mp4' ? 'mp4' : 'webm';
-      resultFile = new File(chunks, 'สะพานบุญ-ก้านบุญพิมพา.' + extension, { type });
-      if (!resultFile.size) throw Error('บันทึกวิดีโอไม่สำเร็จ กรุณาลองใหม่');
+      const recordedVideo = new Blob(chunks, { type: mp4Type });
+      if (!recordedVideo.size) throw Error('บันทึกวิดีโอไม่สำเร็จ กรุณาลองใหม่');
+      progress.textContent = 'กำลังรวมภาพและเสียงพรเป็นไฟล์ MP4…';
+      const bytes = await combineVideoAndVoice(media, recordedVideo, voiceTrack, signal);
+      if (signal.aborted) return;
+      if (!bytes?.byteLength) throw Error('บันทึกวิดีโอไม่สำเร็จ กรุณาลองใหม่');
+      resultFile = new File([bytes], 'สะพานบุญ-ก้านบุญพิมพา.mp4', { type: mp4Type });
       resultURL = URL.createObjectURL(resultFile);
       download.href = resultURL;
       download.download = resultFile.name;
       download.hidden = false;
       share.hidden = !(navigator.canShare && navigator.canShare({ files: [resultFile] }));
-      progress.textContent = 'วิดีโอรับพรพร้อมแล้ว · ' + extension.toUpperCase();
+      progress.textContent = 'วิดีโอรับพรพร้อมแล้ว · MP4';
     } catch (error) {
       if (!signal.aborted || signal.reason?.name === 'AbortError') {
         progress.textContent = error.message || 'สร้างวิดีโอไม่สำเร็จ กรุณาลองใหม่';
@@ -384,7 +420,7 @@
       if (typeof signal.reason === 'string') progress.textContent = signal.reason;
       if (recorder?.state === 'recording') recorder.stop();
       stream?.getTracks().forEach(track => track.stop());
-      if (audio && audio.state !== 'closed') audio.close().catch(() => {});
+      voiceInput?.dispose();
       document.removeEventListener('visibilitychange', onVisibility);
       activeJob = null;
       button.disabled = false;
