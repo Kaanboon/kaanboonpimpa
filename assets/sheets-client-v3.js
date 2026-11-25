@@ -4,15 +4,68 @@
  const preview=window.KB_PREVIEW_MODE===true;let queue=Promise.resolve(),catalog=null,loading=null,lastFingerprint='',lastRequestId='';
  function jsonp(action,params={}){return new Promise((resolve,reject)=>{const callback='kbApi_'+Date.now()+'_'+Math.random().toString(36).slice(2),script=document.createElement('script');let done=false;function finish(fn,v){if(done)return;done=true;clearTimeout(timer);delete window[callback];script.remove();fn(v)}window[callback]=value=>finish(resolve,value);script.onerror=()=>finish(reject,Error('เชื่อมต่อระบบไม่ได้ กรุณาลองใหม่'));const timer=setTimeout(()=>finish(reject,Error('ไม่ได้รับคำตอบจากระบบ กรุณาตรวจเวอร์ชัน Apps Script')),14000);script.src=endpoint+'?'+new URLSearchParams({action,callback,...params});document.head.appendChild(script)})}
  function loadCatalog(){if(preview){catalog={ok:true,apiVersion:5,products:window.GoldenBridgeModel.products.map(p=>({...p})),preview:true};return Promise.resolve(catalog)}if(!loading)loading=jsonp('catalog').then(result=>{if(!result.ok||result.apiVersion!==5||!Array.isArray(result.products))throw Error('กรุณาอัปเดต Apps Script ฉบับคืนรวมแสงและดอกบัวแห่งความคิดถึงก่อนเปิดรับคำสั่งซื้อ');catalog=result;return result}).finally(()=>{loading=null});return loading}
- function request(payload){return new Promise((resolve,reject)=>{const frame=document.createElement('iframe'),form=document.createElement('form'),input=document.createElement('input');frame.name='kb-'+payload.requestId;frame.title='รับส่งข้อมูลคำสั่งซื้อ';frame.hidden=true;form.method='POST';form.action=endpoint;form.target=frame.name;form.hidden=true;input.type='hidden';input.name='payload';input.value=JSON.stringify(payload);form.appendChild(input);let done=false;
+ function request(payload,onStage){return new Promise((resolve,reject)=>{const frame=document.createElement('iframe'),form=document.createElement('form'),input=document.createElement('input');frame.name='kb-'+payload.requestId;frame.title='รับส่งข้อมูลคำสั่งซื้อ';frame.hidden=true;form.method='POST';form.action=endpoint;form.target=frame.name;form.hidden=true;input.type='hidden';input.name='payload';input.value=JSON.stringify(payload);form.appendChild(input);let done=false;
  function finish(fn,value){if(done)return;done=true;clearTimeout(timer);window.removeEventListener('message',message);frame.remove();form.remove();fn(value)}
  function message(event){let host;try{host=new URL(event.origin).hostname}catch(_){return}if(!(host==='script.google.com'||host==='script.googleusercontent.com'||host.endsWith('.googleusercontent.com')))return;const r=event.data;if(!r||r.source!=='kaanboon-sheets'||typeof r.ok!=='boolean')return;if(r.requestId!==payload.requestId)return;if(payload.action==='track'&&r.ok&&!('found'in r))return;if(payload.action==='memory'&&r.ok&&typeof r.memoryId!=='string')return;if(!['track','memory'].includes(payload.action)&&r.ok&&typeof r.orderId!=='string')return;finish(resolve,r)}
- const timer=setTimeout(async()=>{if(payload.action==='track'){finish(reject,Error('ค้นหาไม่สำเร็จ โปรดลองอีกครั้ง'));return}for(let i=0;i<3&&!done;i++){try{const isMemory=payload.action==='memory',status=await jsonp(isMemory?'memoryStatus':'status',{requestId:payload.requestId});if(status.ok&&status.found){finish(resolve,isMemory?{ok:true,memoryId:status.memoryId,recovered:true}:{ok:true,orderId:status.orderId,recovered:true});return}}catch(_){}if(i<2)await new Promise(r=>setTimeout(r,2000))}finish(reject,Error(payload.action==='memory'?'ยังยืนยันดอกบัวไม่ได้ ลองอีกครั้งได้โดยระบบจะใช้รหัสดอกเดิม':'ยังยืนยันการบันทึกไม่ได้ กรุณาตรวจสถานะด้วยเบอร์โทรหรือติดต่อร้านก่อนทำรายการซ้ำ'))},25000);
+ const timer=setTimeout(async()=>{if(payload.action==='track'){finish(reject,Error('ค้นหาไม่สำเร็จ โปรดลองอีกครั้ง'));return}onStage?.('checking');for(let i=0;i<3&&!done;i++){try{const isMemory=payload.action==='memory',status=await jsonp(isMemory?'memoryStatus':'status',{requestId:payload.requestId});if(status.ok&&status.found){finish(resolve,isMemory?{ok:true,memoryId:status.memoryId,recovered:true}:{ok:true,orderId:status.orderId,recovered:true});return}}catch(_){}if(i<2&&!done)await new Promise(r=>setTimeout(r,2000))}finish(reject,Error(payload.action==='memory'?'ยังยืนยันดอกบัวไม่ได้ ลองอีกครั้งได้โดยระบบจะใช้รหัสดอกเดิม':'ยังยืนยันการบันทึกไม่ได้ กรุณาตรวจสถานะด้วยเบอร์โทรหรือติดต่อร้านก่อนทำรายการซ้ำ'))},25000);
  window.addEventListener('message',message);document.body.append(frame,form);try{form.submit()}catch(err){finish(reject,err)}})}
  function send(payload){if(preview&&payload.action==='track')return Promise.resolve({ok:true,found:false,orders:[],message:'ตัวอย่างในเครื่องไม่ค้นข้อมูลลูกค้าจริง · ใช้ปุ่มดูเรื่องราวตัวอย่างด้านล่างได้'});const id=payload.requestId||crypto.randomUUID().replace(/-/g,'');const next=queue.then(()=>request({...payload,requestId:id}));queue=next.catch(()=>{});return next}
- function readSlip(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]||'');reader.onerror=()=>reject(Error('อ่านสลิปไม่สำเร็จ'));reader.readAsDataURL(file)})}
+ function readSlip(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]||'');reader.onerror=reader.onabort=()=>reject(Error('อ่านสลิปไม่สำเร็จ'));reader.readAsDataURL(file)})}
+
+ function compactSlip(file){
+   if(file.size<=512*1024)return Promise.resolve(file);
+   return new Promise(resolve=>{
+     const image=new Image(),url=URL.createObjectURL(file);
+     let finished=false;
+     const fallback=setTimeout(()=>finish(file),2000);
+     function finish(blob){
+       if(finished)return;
+       finished=true;
+       clearTimeout(fallback);
+       image.onload=image.onerror=null;
+       URL.revokeObjectURL(url);
+       resolve(blob);
+     }
+     image.onerror=()=>finish(file);
+     image.onload=()=>{
+       const width=image.naturalWidth,height=image.naturalHeight;
+       const scale=Math.min(1,2400/Math.max(width,height));
+       // Keep enough pixels across narrow receipts to preserve small text and QR modules.
+       if(!width||!height||(scale<1&&Math.min(width,height)*scale<750)){finish(file);return}
+       try{
+         const canvas=document.createElement('canvas');
+         canvas.width=Math.round(width*scale);
+         canvas.height=Math.round(height*scale);
+         const context=canvas.getContext('2d');
+         context.fillStyle='#fff';
+         context.fillRect(0,0,canvas.width,canvas.height);
+         context.drawImage(image,0,0,canvas.width,canvas.height);
+         canvas.toBlob(blob=>{
+           canvas.width=canvas.height=0;
+           finish(blob?.type==='image/jpeg'&&blob.size<file.size*.85?blob:file);
+         },'image/jpeg',.92);
+       }catch(_){finish(file)}
+     };
+     image.src=url;
+   }).catch(()=>file);
+ }
  let memoryFingerprint='',memoryRequestId='';window.KBMemoryService={async save(province,fingerprint){if(preview)return {ok:true,memoryId:'preview-memory',preview:true};await loadCatalog();if(memoryFingerprint!==fingerprint||!memoryRequestId){memoryFingerprint=fingerprint;memoryRequestId=crypto.randomUUID().replace(/-/g,'')}const result=await send({action:'memory',province,requestId:memoryRequestId});if(!result.ok)throw Error(result.message||'ยังเพิ่มดอกบัวไม่ได้');return result}};
  window.KBApi={jsonp,loadCatalog,get catalog(){return catalog},preview};window.KBSheets={send};
- window.KBOrderService={reset(){lastFingerprint="";lastRequestId=""},async save(data,file){if(preview)return {ok:true,orderId:'ตัวอย่าง-ไม่บันทึก',preview:true};await loadCatalog();if(!file||!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5*1024*1024)throw Error('กรุณาแนบสลิป JPG, PNG หรือ WebP ไม่เกิน 5 MB');const fingerprint=JSON.stringify({...data,file:[file.name,file.size,file.lastModified]});if(lastFingerprint!==fingerprint){lastFingerprint=fingerprint;lastRequestId=crypto.randomUUID().replace(/-/g,'')}
- const slip={name:file.name,mimeType:file.type,base64:await readSlip(file)},result=await send({...data,slip,requestId:lastRequestId});if(!result.ok)throw Error(result.message||'บันทึกคำสั่งซื้อไม่สำเร็จ');const phone=document.getElementById('trackPhone');if(phone)phone.value=data.phone;const box=document.getElementById('trackResult');if(box)box.textContent='รับคำสั่งซื้อแล้ว: '+result.orderId+' · รอตรวจสอบสลิป';return result}};
+ window.KBOrderService={reset(){lastFingerprint="";lastRequestId=""},async save(data,file,onStage){
+   if(preview)return {ok:true,orderId:'ตัวอย่าง-ไม่บันทึก',preview:true};
+   if(!file||!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5*1024*1024)throw Error('กรุณาแนบสลิป JPG, PNG หรือ WebP ไม่เกิน 5 MB');
+   if(!catalog)await loadCatalog();
+   const fingerprint=JSON.stringify({...data,file:[file.name,file.size,file.lastModified]});
+   if(lastFingerprint!==fingerprint){lastFingerprint=fingerprint;lastRequestId=crypto.randomUUID().replace(/-/g,'')}
+   const requestId=lastRequestId;
+   const attachment=await compactSlip(file);
+   const name=attachment.type===file.type?file.name:file.name.replace(/\.[^.]+$/,'')+'.jpg';
+   const slip={name,mimeType:attachment.type,base64:await readSlip(attachment)};
+   onStage?.('sending');
+   const result=await request({...data,slip,requestId},onStage);
+   if(!result.ok)throw Error(result.message||'บันทึกคำสั่งซื้อไม่สำเร็จ');
+   const phone=document.getElementById('trackPhone');if(phone)phone.value=data.phone;
+   const box=document.getElementById('trackResult');if(box)box.textContent='รับคำสั่งซื้อแล้ว: '+result.orderId+' · รอตรวจสอบสลิป';
+   return result;
+ }};
 })();

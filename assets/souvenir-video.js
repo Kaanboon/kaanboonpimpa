@@ -1,24 +1,412 @@
-(()=>{'use strict';
- const centerText=(...args)=>window.KBMeritCard.centerText(...args);
- const $=id=>document.getElementById(id),button=$('createMeritVideo'),cancel=$('cancelMeritVideo'),progress=$('videoProgress'),download=$('downloadMeritVideo'),share=$('shareMeritVideo');let cancelled=false,recording=false,resultFile=null,resultURL=null;
- function load(src){return new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(Error('โหลดภาพไม่สำเร็จ'));image.src=src})}
- function round(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
- function cover(c,img,x,y,w,h,zoom=1){const scale=Math.max(w/img.width,h/img.height)*zoom,sw=w/scale,sh=h/scale;c.drawImage(img,(img.width-sw)/2,(img.height-sh)/2,sw,sh,x,y,w,h)}
- function flower(c,x,y,size,opacity,festival){const palette=window.KBFestival?.palette(festival);c.save();c.globalAlpha=opacity;c.translate(x,y);c.scale(size/64,size/64);c.fillStyle=palette?.petal||'#e9a5bf';for(let i=-2;i<=2;i++){c.save();c.rotate(i*.32);c.beginPath();c.moveTo(0,15);c.bezierCurveTo(-22,-6,-12,-29,0,-39);c.bezierCurveTo(13,-25,22,-6,0,15);c.fill();c.restore()}c.fillStyle=palette?.base||'#f5cee0';c.beginPath();c.ellipse(0,13,27,8,0,0,Math.PI*2);c.fill();c.restore()}
- function draw(c,images,data,t,showName){const w=720,h=1280;c.save();cover(c,images.bridge,0,0,w,h,1+t*.07);const wash=c.createLinearGradient(0,0,0,h);wash.addColorStop(0,'#fff8e5a8');wash.addColorStop(.45,'#fff8e525');wash.addColorStop(1,'#8a5c1bc4');c.fillStyle=wash;c.fillRect(0,0,w,h);window.KBFestival?.paint(c,w,h,data.festival,t);window.KBFestival?.caption(c,w,339,data.festival);
- for(let i=0;i<24;i++){const x=(i*137+60)%w,y=(i*89+1180-t*300*(.6+i%3))%h;c.globalAlpha=.3+.45*Math.sin(t*4+i)**2;c.fillStyle='#fff6bc';c.beginPath();c.arc(x,y,2+i%3,0,Math.PI*2);c.fill()}c.globalAlpha=1;
- c.save();c.globalCompositeOperation='multiply';cover(c,images.logo,296,46,128,128);c.restore();c.textAlign='center';c.textBaseline='alphabetic';c.font='500 22px "KB Prompt"';c.fillStyle='#815a24';centerText(c,'ก้านบุญ พิมพา สุพรรณบุรี',w/2,210);c.font='500 59px "KB Maitree"';centerText(c,'สะพานบุญ',w/2,305);
- const appear=Math.min(1,t*3);c.globalAlpha=appear;c.fillStyle='#fffbf0ed';round(c,48,358,624,545,29);c.fill();c.strokeStyle='#d4b56b';c.lineWidth=1.5;c.stroke();c.font='500 39px "KB Maitree"';c.fillStyle='#9d712d';centerText(c,'ขออนุโมทนาบุญ',360,428);
- let nameLines=showName&&data.name?window.KBMeritCard.wrap(c,data.name,540):['ทุกความตั้งใจ มีเส้นทางส่งต่อ'];c.font='500 31px "KB Maitree"';nameLines=showName&&data.name?window.KBMeritCard.wrap(c,data.name,540):nameLines;nameLines.slice(0,3).forEach((line,i)=>centerText(c,line,360,486+i*52));
- const monkY=Math.max(554,486+(nameLines.length-1)*52+30),monkSize=Math.min(200,777-monkY);c.drawImage(images.monk,(720-monkSize)/2,monkY,monkSize,monkSize);c.font='400 19px "KB Prompt"';c.fillStyle='#907344';const itemLines=window.KBMeritCard.wrap(c,data.items,530);itemLines.slice(0,3).forEach((line,i)=>centerText(c,line,360,802+i*28));c.font='400 17px "KB Prompt"';centerText(c,'ธูปรวม '+data.incense.toLocaleString('th-TH')+' ชุด',360,886);c.globalAlpha=1;
- for(let i=0;i<8;i++){const p=(t*.75+i/8)%1;flower(c,55+(i*97)%610,1240-p*800,55+i%3*15,Math.sin(p*Math.PI)*.28,data.festival)}c.fillStyle='#fff6dd';c.font='500 29px "KB Maitree"';centerText(c,'ขอให้ท่านและครอบครัว',360,1007);centerText(c,'มีความสุขและความเป็นสิริมงคล',360,1057);c.font='400 18px "KB Prompt"';centerText(c,'kaanboon.github.io/kaanboonpimpa',360,1160);c.font='400 14px "KB Prompt"';centerText(c,data.preview?'ตัวอย่างประสบการณ์ร่วมถวายออนไลน์':'การ์ดที่ระลึก · ติดตามการถวายจริงได้บนเว็บไซต์',360,1203);c.restore()}
- async function exportVideo(){if(recording)return;recording=true;cancelled=false;button.disabled=true;cancel.hidden=false;download.hidden=true;share.hidden=true;progress.textContent='กำลังเตรียมภาพและฟอนต์…';let stream,recorder,audio,timer;
- try{if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream)throw Error('เบราว์เซอร์นี้ยังบันทึกคลิปไม่ได้ ใช้ปุ่มเก็บการ์ดที่ระลึกเป็นภาพได้ค่ะ');await window.KBMeritCard.readyFonts();const [bridge,logo,monk]=await Promise.all([load('assets/golden-merit-bridge.png'),load('assets/brand-logo.png'),load('assets/monk-chibi-3d.png')]);const data={...window.KBBridge.snapshot(),festival:window.KBFestival?.current()},showName=$('shareShowName').checked,canvas=document.createElement('canvas');canvas.width=720;canvas.height=1280;const context=canvas.getContext('2d');draw(context,{bridge,logo,monk},data,0,showName);stream=canvas.captureStream(24);
- const Audio=window.AudioContext||window.webkitAudioContext;if(Audio){audio=new Audio();await audio.resume();const destination=audio.createMediaStreamDestination();destination.stream.getAudioTracks().forEach(track=>stream.addTrack(track));[[256,.12,3.5],[514,.05,2.6],[701,.025,1.8]].forEach(([hz,level,decay])=>{const oscillator=audio.createOscillator(),gain=audio.createGain(),start=audio.currentTime+3;oscillator.frequency.value=hz;gain.gain.setValueAtTime(.0001,start);gain.gain.exponentialRampToValueAtTime(level,start+.02);gain.gain.exponentialRampToValueAtTime(.0001,start+decay);oscillator.connect(gain);gain.connect(destination);oscillator.start(start);oscillator.stop(start+decay+.1)})}
- const mime=['video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(type=>MediaRecorder.isTypeSupported(type));if(!mime)throw Error('เบราว์เซอร์นี้ไม่รองรับรูปแบบคลิป ใช้การ์ดภาพแทนได้ค่ะ');const chunks=[];recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:3000000});const completed=new Promise((resolve,reject)=>{recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};recorder.onstop=resolve;recorder.onerror=()=>reject(Error('บันทึกคลิปไม่สำเร็จ'))});recorder.start(250);
- await new Promise(resolve=>{const started=performance.now();function frame(now){const t=Math.min(1,(now-started)/10000);draw(context,{bridge,logo,monk},data,t,showName);progress.textContent='กำลังสร้างคลิป '+Math.floor(t*100)+'% · เปิดหน้านี้ไว้สักครู่';if(t>=1||cancelled){resolve();return}timer=requestAnimationFrame(frame)}timer=requestAnimationFrame(frame)});recorder.stop();await completed;if(cancelled){progress.textContent='ยกเลิกการสร้างคลิปแล้ว';return}const blob=new Blob(chunks,{type:recorder.mimeType});if(!blob.size)throw Error('บันทึกคลิปไม่สำเร็จ');if(resultURL)URL.revokeObjectURL(resultURL);const extension=blob.type.startsWith('video/mp4')?'mp4':'webm';resultFile=new File([blob],'สะพานบุญ-ก้านบุญพิมพา.'+extension,{type:blob.type});resultURL=URL.createObjectURL(blob);download.href=resultURL;download.download=resultFile.name;download.hidden=false;share.hidden=!(navigator.canShare&&navigator.canShare({files:[resultFile]}));progress.textContent='คลิปพร้อมแล้ว · '+extension.toUpperCase()+' · บันทึกหรือแชร์ได้เลย';
- }catch(error){progress.textContent=error.message||'สร้างคลิปไม่สำเร็จ กรุณาลองใหม่'}finally{if(timer)cancelAnimationFrame(timer);if(recorder?.state==='recording')recorder.stop();stream?.getTracks().forEach(t=>t.stop());audio?.close();recording=false;button.disabled=false;cancel.hidden=true}}
- button.addEventListener('click',exportVideo);cancel.addEventListener('click',()=>{cancelled=true});share.addEventListener('click',async()=>{if(!resultFile)return;try{await navigator.share({files:[resultFile],title:'สะพานบุญ · ก้านบุญ พิมพา',text:'ขออนุโมทนาในทุกความตั้งใจดี ๆ'})}catch(error){if(error.name!=='AbortError')progress.textContent='แชร์ไม่สำเร็จ กดดาวน์โหลดแล้วเลือกส่งจากเครื่องได้ค่ะ'}});
- window.addEventListener('kb:order-saved',()=>{if(resultURL)URL.revokeObjectURL(resultURL);resultURL=null;resultFile=null;download.hidden=true;share.hidden=true;progress.textContent=''});
- window.KBSouvenirVideo={draw,flower};
+(() => {
+  'use strict';
+
+  const width = 720;
+  const height = 1280;
+  const intro = 0.8;
+  const outro = 2;
+  const defaultDuration = 34.0375;
+  const $ = id => document.getElementById(id);
+  const button = $('createMeritVideo');
+  const cancel = $('cancelMeritVideo');
+  const progress = $('videoProgress');
+  const download = $('downloadMeritVideo');
+  const share = $('shareMeritVideo');
+  let activeJob;
+  let resultFile;
+  let resultURL;
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(Error('โหลดภาพสำหรับทำคลิปไม่สำเร็จ กรุณาลองใหม่'));
+      image.src = src;
+    });
+  }
+
+  function cover(context, image, zoom) {
+    const scale = Math.max(width / image.width, height / image.height) * zoom;
+    const sourceWidth = width / scale;
+    const sourceHeight = height / scale;
+    context.drawImage(image, (image.width - sourceWidth) / 2, (image.height - sourceHeight) / 2,
+      sourceWidth, sourceHeight, 0, 0, width, height);
+  }
+
+  function random(index) {
+    const value = Math.sin(index * 127.1 + 311.7) * 43758.5453;
+    return value - Math.floor(value);
+  }
+
+  function sparkle(context, x, y, size, opacity) {
+    context.globalAlpha = opacity;
+    context.fillStyle = '#fff5b9';
+    context.beginPath();
+    context.moveTo(x, y - size);
+    context.quadraticCurveTo(x + size * .2, y - size * .2, x + size * .62, y);
+    context.quadraticCurveTo(x + size * .2, y + size * .2, x, y + size);
+    context.quadraticCurveTo(x - size * .2, y + size * .2, x - size * .62, y);
+    context.quadraticCurveTo(x - size * .2, y - size * .2, x, y - size);
+    context.fill();
+  }
+
+  function drawGold(context, seconds, blessingDuration) {
+    const closing = Math.max(0, 1 - Math.abs(seconds - (intro + blessingDuration - .5)) / 2.3);
+    context.save();
+    for (let i = 0; i < 40; i++) {
+      const right = i % 2 === 0;
+      const x = (right ? width - 105 : 105) + (random(i + 10) - .5) * 145;
+      const y = 1140 - (random(i + 90) * 820 + seconds * (18 + i % 14)) % 890;
+      const pulse = .5 + .5 * Math.sin(seconds * (1 + i % 4 * .15) + i);
+      sparkle(context, x, y, 2.8 + random(i + 42) * 7 + closing * 4, .14 + pulse * .52 + closing * .16);
+    }
+    context.restore();
+  }
+
+  function drawWater(context, voiceTime, duration, tipX, tipY) {
+    // Each spray starts at the visible end of the brush. Gravity and several
+    // speeds give the droplets an arc and a little depth without hiding the face.
+    if (voiceTime < .27 || voiceTime > duration + 1.1) return;
+    const interval = 2.7;
+    const wave = Math.floor((voiceTime - .27) / interval);
+    const sprayTime = .27 + wave * interval;
+    if (sprayTime > duration - .2) return;
+    context.save();
+    for (let i = 0; i < 33; i++) {
+      const seed = i + 41 * wave;
+      const age = voiceTime - sprayTime - random(seed + 30) * .32;
+      const life = .51 + random(seed + 60) * .61;
+      if (age < 0 || age >= life) continue;
+      const depth = random(seed + 90);
+      const x = tipX - (24 + random(seed + 120) * 216) * age + (depth - .22) * 142 * age ** 2;
+      const y = tipY - (66 + random(seed + 150) * 192) * age + (185 + depth * 155) * age ** 2;
+      const size = (1 + depth * 3.2) * (.65 + age * 1.15);
+      const fade = Math.min(1, (life - age) * 6, age * 24);
+      context.globalAlpha = fade * (.35 + depth * .6);
+      context.fillStyle = '#d9f4ff';
+      context.strokeStyle = '#648c9e';
+      context.lineWidth = .65;
+      context.beginPath();
+      context.ellipse(x, y, size * .63, size * 1.55, -.62 + age * .9, 0, Math.PI * 2);
+      context.fill();
+      context.stroke();
+      context.fillStyle = '#fffdf3';
+      context.beginPath();
+      context.arc(x - size * .21, y - size * .47, size * .28, 0, Math.PI * 2);
+      context.fill();
+    }
+    context.restore();
+  }
+
+  function draw(context, images, data, progress, showName, voiceDuration = defaultDuration) {
+    const seconds = progress * (intro + voiceDuration + outro);
+    const center = (text, y, maxWidth) => window.KBMeritCard.centerText(context, text, width / 2, y, maxWidth);
+    context.save();
+    cover(context, images.bridge, 1 + progress * .06);
+    const wash = context.createLinearGradient(0, 0, 0, height);
+    wash.addColorStop(0, '#382015ed');
+    wash.addColorStop(.32, '#4d2a1692');
+    wash.addColorStop(.64, '#422211b0');
+    wash.addColorStop(1, '#2c180ff8');
+    context.fillStyle = wash;
+    context.fillRect(0, 0, width, height);
+    window.KBFestival?.paint(context, width, height, data.festival, progress);
+
+    context.strokeStyle = '#ffe3a4ab';
+    context.lineWidth = 2;
+    context.strokeRect(27, 29, 666, 1222);
+    context.strokeStyle = '#ffe3a44c';
+    context.lineWidth = 1;
+    context.strokeRect(36, 38, 648, 1204);
+
+    const aura = context.createRadialGradient(426, 539, 36, 426, 539, 365);
+    aura.addColorStop(0, '#ffda84db');
+    aura.addColorStop(.65, '#ffbd534e');
+    aura.addColorStop(1, '#ffbd5300');
+    context.fillStyle = aura;
+    context.fillRect(0, 0, width, height);
+    drawGold(context, seconds, voiceDuration);
+
+    context.save();
+    context.globalAlpha = Math.min(1, seconds / .64);
+    const size = 512 + 12 * progress;
+    const monkX = (width - size) / 2 + 36;
+    const monkY = 338 + 10 * (1 - context.globalAlpha);
+    context.drawImage(images.monk, monkX, monkY, size, size);
+    context.restore();
+    drawWater(context, seconds - intro, voiceDuration, monkX + size * .079, monkY + size * .201);
+
+    context.save();
+    context.beginPath();
+    context.arc(360, 123, 59, 0, Math.PI * 2);
+    context.clip();
+    context.fillStyle = '#fff4dd';
+    context.fillRect(300, 63, 120, 120);
+    context.globalCompositeOperation = 'multiply';
+    context.drawImage(images.logo, 300, 63, 120, 120);
+    context.restore();
+    context.strokeStyle = '#ffdea0';
+    context.lineWidth = 1.5;
+    context.stroke();
+    context.textBaseline = 'alphabetic';
+    context.font = '500 23px "KB Prompt"';
+    context.fillStyle = '#fff4d9';
+    center('ก้านบุญ พิมพา สุพรรณบุรี', 208, 605);
+    context.font = '500 53px "KB Maitree"';
+    context.fillStyle = '#ffdda2';
+    center('ขออนุโมทนาบุญ', 281, 604);
+    window.KBFestival?.caption(context, width, 317, data.festival);
+
+    context.fillStyle = '#fff4dd';
+    if (showName && data.name) {
+      const name = String(data.name).trim();
+      let size = 38;
+      let lines;
+      do {
+        context.font = `500 ${size}px "KB Maitree"`;
+        lines = window.KBMeritCard.wrap(context, name, 548);
+        if (lines.length * size * 1.28 <= 150) break;
+        size -= 2;
+      } while (size >= 16);
+      const visibleLines = lines.slice(0, 7);
+      visibleLines.forEach((line, i) => center(line, 936 + (i - (visibleLines.length - 1) / 2) * size * 1.28, 550));
+    } else {
+      context.font = '500 34px "KB Maitree"';
+      center('ทุกความตั้งใจ มีเส้นทางส่งต่อ', 936, 560);
+    }
+
+    context.strokeStyle = '#ffda947d';
+    context.beginPath();
+    context.moveTo(168, 1032);
+    context.lineTo(552, 1032);
+    context.stroke();
+    context.font = '400 19px "KB Prompt"';
+    context.fillStyle = '#ffe7bc';
+    window.KBMeritCard.wrap(context, data.items || '', 565).slice(0, 3)
+      .forEach((line, i) => center(line, 1066 + i * 27, 565));
+    center('ธูปรวม ' + data.incense.toLocaleString('th-TH') + ' ชุด', 1164, 560);
+    context.font = '400 16px "KB Prompt"';
+    center('kaanboon.github.io/kaanboonpimpa', 1202, 560);
+    if (data.preview) {
+      context.font = '400 13px "KB Prompt"';
+      center('ตัวอย่างประสบการณ์ร่วมถวายออนไลน์', 1228, 560);
+    }
+    context.restore();
+  }
+
+  function clearResult() {
+    if (resultURL) URL.revokeObjectURL(resultURL);
+    resultURL = resultFile = null;
+    download.removeAttribute('href');
+    download.hidden = share.hidden = true;
+  }
+
+  async function fetchVoice(audio, signal) {
+    const response = await fetch('assets/blessing-video-voice.mp3', { signal });
+    if (!response.ok) throw Error('โหลดเสียงพรไม่สำเร็จ กรุณาลองใหม่');
+    const bytes = await response.arrayBuffer();
+    return audio.decodeAudioData(bytes);
+  }
+
+  async function startRecorder(stream, types, signal, drawFirstFrame) {
+    for (const mimeType of types) {
+      if (signal.aborted) return null;
+      let recorder;
+      try {
+        recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 3000000, audioBitsPerSecond: 128000 });
+        const chunks = [];
+        let resolveStart;
+        const started = new Promise(resolve => { resolveStart = resolve; });
+        const stopped = new Promise(resolve => {
+          recorder.onstart = () => resolveStart(true);
+          recorder.ondataavailable = event => {
+            if (event.data.size) chunks.push(event.data);
+          };
+          recorder.onstop = () => {
+            resolveStart(false);
+            resolve(null);
+          };
+          recorder.onerror = () => {
+            resolveStart(false);
+            resolve(Error('บันทึกวิดีโอพร้อมเสียงไม่สำเร็จ'));
+          };
+        });
+        recorder.start(250);
+        let frame;
+        const paint = () => {
+          drawFirstFrame(0);
+          frame = requestAnimationFrame(paint);
+        };
+        const abort = () => resolveStart(false);
+        signal.addEventListener('abort', abort, { once: true });
+        const timeout = setTimeout(abort, 2000);
+        frame = requestAnimationFrame(paint);
+        let ready;
+        try {
+          ready = await started;
+        } finally {
+          clearTimeout(timeout);
+          cancelAnimationFrame(frame);
+          signal.removeEventListener('abort', abort);
+        }
+        if (ready) return { recorder, chunks, stopped, mimeType };
+      } catch {
+        // A codec can be advertised even when the device cannot start its encoder.
+      }
+      if (recorder?.state === 'recording') recorder.stop();
+    }
+    if (signal.aborted) return null;
+    throw Error('เบราว์เซอร์นี้เริ่มบันทึกวิดีโอพร้อมเสียงไม่สำเร็จ');
+  }
+
+  function animate(audio, start, duration, signal, render) {
+    return new Promise((resolve, reject) => {
+      let frame;
+      let lastPercent = -1;
+      function stop() {
+        cancelAnimationFrame(frame);
+        signal.removeEventListener('abort', stop);
+        resolve();
+      }
+      function tick() {
+        try {
+          const fraction = Math.min(1, Math.max(0, (audio.currentTime - start) / duration));
+          render(fraction);
+          const percent = Math.floor(fraction * 100);
+          if (percent !== lastPercent) {
+            progress.textContent = 'กำลังสร้างวิดีโอ ' + percent + '% · เปิดหน้านี้ไว้';
+            lastPercent = percent;
+          }
+          if (fraction === 1) stop();
+          else frame = requestAnimationFrame(tick);
+        } catch (error) {
+          signal.removeEventListener('abort', stop);
+          reject(error);
+        }
+      }
+      signal.addEventListener('abort', stop, { once: true });
+      frame = requestAnimationFrame(tick);
+    });
+  }
+
+  async function exportVideo() {
+    if (activeJob) return;
+    const job = new AbortController();
+    activeJob = job;
+    const { signal } = job;
+    button.disabled = true;
+    cancel.hidden = false;
+    clearResult();
+    progress.textContent = 'กำลังเตรียมภาพและเสียงพร…';
+    let audio;
+    let stream;
+    let recorder;
+
+    function onVisibility() {
+      if (document.hidden) job.abort('หยุดสร้างวิดีโอเมื่อสลับหน้า กรุณากดสร้างใหม่');
+    }
+    document.addEventListener('visibilitychange', onVisibility);
+    try {
+      const Audio = window.AudioContext || window.webkitAudioContext;
+      if (!Audio || !window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
+        throw Error('เบราว์เซอร์นี้ยังบันทึกวิดีโอพร้อมเสียงไม่ได้');
+      }
+      const recordingTypes = [
+        'video/webm;codecs=vp8,opus',
+        'video/webm;codecs=vp9,opus',
+        'video/webm',
+        'video/mp4;codecs=avc1.42001f,mp4a.40.2',
+        'video/mp4'
+      ].filter(type => MediaRecorder.isTypeSupported(type));
+      if (!recordingTypes.length) throw Error('เบราว์เซอร์นี้ไม่รองรับชนิดไฟล์วิดีโอ');
+      audio = new Audio();
+      const [voice, bridge, logo, monk] = await Promise.all([
+        fetchVoice(audio, signal),
+        loadImage('assets/golden-merit-bridge.png'),
+        loadImage('assets/brand-logo.png'),
+        loadImage('assets/blessing-video-monk.png'),
+        window.KBMeritCard.readyFonts(),
+        audio.resume()
+      ]);
+      if (signal.aborted) return;
+      const data = { ...window.KBBridge.snapshot(), festival: window.KBFestival?.current() };
+      const showName = $('shareShowName').checked;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      const drawFrame = fraction => draw(context, { bridge, logo, monk }, data, fraction, showName, voice.duration);
+      drawFrame(0);
+      const destination = audio.createMediaStreamDestination();
+      const silence = audio.createConstantSource();
+      silence.offset.value = 0;
+      silence.connect(destination);
+      silence.start();
+      const source = audio.createBufferSource();
+      source.buffer = voice;
+      source.connect(destination);
+      stream = canvas.captureStream(24);
+      destination.stream.getAudioTracks().forEach(track => stream.addTrack(track));
+
+      const recording = await startRecorder(stream, recordingTypes, signal, drawFrame);
+      if (!recording) return;
+      ({ recorder } = recording);
+      if (signal.aborted) return;
+      const { chunks, stopped, mimeType } = recording;
+      const start = audio.currentTime + .07;
+      source.start(start + intro);
+      const rendering = animate(audio, start, intro + voice.duration + outro, signal, drawFrame);
+      const error = await Promise.race([rendering.then(() => null), stopped]);
+      if (error) {
+        job.abort();
+        throw error;
+      }
+      if (recorder.state === 'recording') recorder.stop();
+      const finalError = await stopped;
+      if (finalError) throw finalError;
+      if (signal.aborted) return;
+
+      const type = (recorder.mimeType || mimeType).split(';')[0];
+      const extension = type === 'video/mp4' ? 'mp4' : 'webm';
+      resultFile = new File(chunks, 'สะพานบุญ-ก้านบุญพิมพา.' + extension, { type });
+      if (!resultFile.size) throw Error('บันทึกวิดีโอไม่สำเร็จ กรุณาลองใหม่');
+      resultURL = URL.createObjectURL(resultFile);
+      download.href = resultURL;
+      download.download = resultFile.name;
+      download.hidden = false;
+      share.hidden = !(navigator.canShare && navigator.canShare({ files: [resultFile] }));
+      progress.textContent = 'วิดีโอรับพรพร้อมแล้ว · ' + extension.toUpperCase();
+    } catch (error) {
+      if (!signal.aborted || signal.reason?.name === 'AbortError') {
+        progress.textContent = error.message || 'สร้างวิดีโอไม่สำเร็จ กรุณาลองใหม่';
+      }
+    } finally {
+      if (typeof signal.reason === 'string') progress.textContent = signal.reason;
+      if (recorder?.state === 'recording') recorder.stop();
+      stream?.getTracks().forEach(track => track.stop());
+      if (audio && audio.state !== 'closed') audio.close().catch(() => {});
+      document.removeEventListener('visibilitychange', onVisibility);
+      activeJob = null;
+      button.disabled = false;
+      cancel.hidden = true;
+    }
+  }
+
+  button.addEventListener('click', exportVideo);
+  cancel.addEventListener('click', () => activeJob?.abort('ยกเลิกการสร้างวิดีโอแล้ว'));
+  share.addEventListener('click', async () => {
+    if (!resultFile) return;
+    try {
+      await navigator.share({ files: [resultFile], title: 'สะพานบุญ · ก้านบุญ พิมพา', text: 'ขออนุโมทนาในทุกความตั้งใจดี ๆ' });
+    } catch (error) {
+      if (error.name !== 'AbortError') progress.textContent = 'แชร์ไม่สำเร็จ กดดาวน์โหลดแล้วเลือกส่งจากเครื่องได้';
+    }
+  });
+  window.addEventListener('kb:order-saved', () => {
+    activeJob?.abort('');
+    clearResult();
+    progress.textContent = '';
+  });
+
+  window.KBSouvenirVideo = { draw };
 })();
