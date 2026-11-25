@@ -55,5 +55,11 @@
   find('meritAutoBridge').addEventListener('click',makeBridge);find('meritResetBridge').addEventListener('click',resetDrawing);
   find('meritWalk').addEventListener('click',walk);find('meritSkipDraw').addEventListener('click',finish);
   find('meritSkipCross').addEventListener('click',finish);find('meritBackChoice').addEventListener('click',showChoice);
-  window.KBMeritPath={open(callback,{preview=false}={}){close();enter=callback;root.hidden=false;find('meritSaveLabel').textContent=preview?'ตัวอย่างประสบการณ์ · ยังไม่ได้บันทึกคำสั่งซื้อ':'บันทึกคำสั่งซื้อเรียบร้อยแล้ว · รอทางร้านตรวจสอบสลิป';showChoice()},close};
+  window.KBMeritPath={open(callback,{preview=false}={}){
+    close();enter=callback;root.hidden=false;
+    find('meritPathTitle').textContent=preview?'ตัวอย่างหลังสั่งซื้อ':'บันทึกคำสั่งซื้อแล้ว';
+    find('meritSaveLabel').textContent=preview?'กำลังชมตัวอย่างโดยไม่ส่งคำสั่งซื้อจริง':'ร้านจะตรวจสอบสลิปของคุณ';
+    find('meritPathPrompt').textContent=preview?'ลองเลือกวิธีร่วมถวายบนเว็บไซต์':'ระหว่างนี้ คุณร่วมถวายบนเว็บไซต์ได้เลย';
+    showChoice();
+  },close};
 })();
