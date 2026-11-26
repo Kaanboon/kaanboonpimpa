@@ -6,40 +6,21 @@
   const total=()=>model.totals(quantities,delivery);
   const chosenText=()=>model.products.flatMap((p,i)=>quantities[i]?[p.name+' ×'+quantities[i]]:[]).join(' · ');
   const souvenirHash='#souvenir';
-  const souvenirKey=window.KBApi?.preview?'kb-latest-souvenir-preview-v1':'kb-latest-souvenir-v1';
-  const souvenirLifetime=7*24*60*60*1000;
   let souvenir=null;
-  let recentSouvenir=readRecentSouvenir();
+  try {
+    localStorage.removeItem('kb-latest-souvenir-v1');
+    localStorage.removeItem('kb-latest-souvenir-preview-v1');
+  }catch(_){}
   function checkoutSnapshot(){
     const t=total();
     return {gift:window.KBStories?.giftData(),name:delivery==='shipping'?'':$('journeyName').value.trim(),
       items:chosenText(),total:t.total,incense:t.incense,shipping:t.shipping,
       orderId:savedOrder?.orderId,province:$('journeyProvince').value,delivery,preview:!!window.KBApi?.preview};
   }
-  function readRecentSouvenir(){
-    try{
-      const data=JSON.parse(localStorage.getItem(souvenirKey));
-      if(data&&data.expiresAt>Date.now()&&typeof data.orderId==='string'&&typeof data.name==='string'&&
-        typeof data.items==='string'&&['offering','shipping'].includes(data.delivery)&&
-        [data.total,data.incense,data.shipping].every(Number.isFinite))return data;
-      if(data)localStorage.removeItem(souvenirKey);
-    }catch(_){}
-    return null;
-  }
-  function rememberSouvenir(data){
-    if(!data.orderId)return;
-    recentSouvenir=data;
-    $('resumeSouvenir').hidden=false;
-    try{localStorage.setItem(souvenirKey,JSON.stringify(data))}catch(_){}
-  }
-  function openRecentSouvenir(){
-    if(submitting)return false;
-    if(!recentSouvenir||recentSouvenir.expiresAt<=Date.now()){
-      recentSouvenir=readRecentSouvenir();
-      $('resumeSouvenir').hidden=!recentSouvenir;
-      if(!recentSouvenir)return false;
-    }
-    souvenir=recentSouvenir;
+  function openTrackedSouvenir(order){
+    if(submitting||!order||typeof order.orderId!=='string'||typeof order.name!=='string')return false;
+    souvenir={...order,fromTracking:true,preview:!!window.KBApi?.preview};
+    window.dispatchEvent(new Event('kb:tracked-souvenir'));
     activate();document.body.dataset.view='flow';
     $('welcome').hidden=true;$('journeyFlow').hidden=false;$('exitJourney').hidden=false;
     showPhase(4);
@@ -48,9 +29,10 @@
   function syncSouvenirLocation(){
     if(submitting)return;
     const showingReceipt=document.body.dataset.view==='flow'&&phase===4;
-    if(location.hash===souvenirHash){
-      if(!showingReceipt&&!openRecentSouvenir())history.replaceState(history.state,'','#top');
-    }else if(showingReceipt)home(false);
+    if(location.hash===souvenirHash&&!showingReceipt){
+      history.replaceState(history.state,'','#track');
+      $('track').scrollIntoView();
+    }else if(location.hash!==souvenirHash&&showingReceipt)home(false);
   }
   function error(text=''){$('journeyError').textContent=text;const feedback=$('paymentFeedback');if(feedback){feedback.hidden=!text;feedback.textContent=text}}
   const savingDialog=$('orderSavingDialog');
@@ -106,7 +88,7 @@
   function begin(){activate();document.body.dataset.view='flow';$('welcome').hidden=true;$('journeyFlow').hidden=false;$('exitJourney').hidden=false;transition(()=>showPhase(0))}
   function home(updateHash=true){
     if(submitting)return;
-    if(updateHash&&location.hash===souvenirHash)history.replaceState(history.state,'','#top');
+    if(updateHash&&location.hash===souvenirHash)history.replaceState(history.state,'',souvenir?.fromTracking?'#track':'#top');
     souvenir=null;
     if(savedOrder){window.KBOrderService?.reset();savedOrder=null;quantities=[0,0,0,0];furthest=0;$('journeyDetails').reset();$('journeySlip').value='';$('slipNote').textContent='แนบสลิป JPG, PNG หรือ WebP ขนาดไม่เกิน 5 MB';setRoute('offering')}
     window.KBMeritPath?.close();window.kbCeremony.stopSound();$('bridgeExperience').hidden=true;$('originalHomepage').hidden=false;document.body.dataset.view='home';document.body.dataset.phase='0';
@@ -135,9 +117,7 @@
         savingDialog.close();
       }
       if(saveError){error(saveError);$('paymentFeedback').focus();return}
-      const {province,...receipt}=checkoutSnapshot();
-      souvenir={...receipt,expiresAt:Date.now()+souvenirLifetime};
-      rememberSouvenir(souvenir);
+      souvenir=checkoutSnapshot();
       window.dispatchEvent(new CustomEvent('kb:order-saved',{detail:{orderId:savedOrder.orderId,preview:!!savedOrder.preview}}));
     }
     transition(()=>showPhase(delivery==='shipping'?4:3))
@@ -147,12 +127,24 @@
     const data=souvenir||checkoutSnapshot(),shipping=data.delivery==='shipping';
     $('receiptTitle').textContent=shipping?'พร้อมรับไปถวายด้วยใจ':'ขออนุโมทนาบุญ';
     $('receiptName').textContent=window.KBMeritCard.donorNames(data.name).join('\n')||(shipping?'เส้นทางรับไปถวายด้วยตนเอง':'ผู้มีจิตศรัทธา');
-    $('receiptSummary').textContent=(data.orderId?'เลขคำสั่งซื้อ '+data.orderId+'\n':'')+data.items+'\nธูปรวม '+data.incense.toLocaleString('th-TH')+' ชุด · ยอดรวม '+money(data.total)+(data.shipping?' (รวมค่าส่ง '+money(data.shipping)+')':'');
+    const totals=[
+      Number.isFinite(data.incense)?'ธูปรวม '+data.incense.toLocaleString('th-TH')+' ชุด':'',
+      Number.isFinite(data.total)?'ยอดรวม '+money(data.total)+(data.shipping?' (รวมค่าส่ง '+money(data.shipping)+')':''):''
+    ].filter(Boolean).join(' · ');
+    $('receiptSummary').textContent=[data.orderId?'เลขคำสั่งซื้อ '+data.orderId:'',data.items,totals].filter(Boolean).join('\n');
+    $('receiptOrderNotice').hidden=!!data.fromTracking;
+    $('interactiveCardTools').hidden=!!data.fromTracking;
+    $('shareInvitation').hidden=!!data.fromTracking;
+    $('invitationStatus').hidden=!!data.fromTracking;
+    $('shareShowName').closest('label').hidden=!!data.fromTracking;
+    document.querySelector('[data-panel="4"] [data-edit-souvenir]').hidden=!!data.fromTracking;
+    $('restartJourney').textContent=data.fromTracking?'กลับไปที่ผลการค้นหา':'กลับหน้าแรก';
     $('receiptActionStatus').textContent='';
   }
   const editDialog=$('souvenirEditDialog');
   document.querySelectorAll('[data-edit-souvenir]').forEach(button=>button.addEventListener('click',()=>{
     const data=souvenir||checkoutSnapshot();
+    if(data.fromTracking)return;
     $('souvenirEditName').value=window.KBMeritCard.donorNames(data.name).join('\n');
     $('souvenirOrderHelp').hidden=!data.orderId||data.preview;
     $('souvenirEditOrder').textContent=data.orderId||'';
@@ -162,22 +154,20 @@
   $('souvenirEditForm').addEventListener('submit',event=>{
     event.preventDefault();
     const data=souvenir||checkoutSnapshot();
+    if(data.fromTracking){editDialog.close();return}
     const name=window.KBMeritCard.donorNames($('souvenirEditName').value).join('\n');
     if(name!==window.KBMeritCard.donorNames(data.name).join('\n')){
       souvenir={...data,name};
-      rememberSouvenir(souvenir);
       if(phase===4){renderReceipt();$('receiptActionStatus').textContent='บันทึกชื่อที่แสดงบนการ์ดและวิดีโอแล้ว'}
       window.dispatchEvent(new Event('kb:souvenir-name-changed'));
     }
     editDialog.close();
   });
-  $('resumeSouvenir').hidden=!recentSouvenir;
-  $('resumeSouvenir').addEventListener('click',openRecentSouvenir);
   $('restartJourney').addEventListener('click',()=>home());
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.dataset.view==='flow'&&!submitting&&!document.querySelector('dialog[open]'))home()});
   $('downloadMeritCard').addEventListener('click',async()=>{const button=$('downloadMeritCard'),label=button.textContent,status=$('receiptActionStatus');button.disabled=true;button.textContent='กำลังเตรียมการ์ด…';status.textContent='';try{const canvas=await window.KBReceiptExport.capture();const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw Error('Empty card');const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='การ์ดสะพานบุญ-ก้านบุญพิมพา.png';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000)}catch(_){status.textContent='เตรียมการ์ดไม่สำเร็จ กรุณาลองอีกครั้ง'}finally{button.disabled=false;button.textContent=label}});
   for(let i=0;i<28;i++){const star=document.createElement('i');star.className='sky-spark';star.style.setProperty('--x',(3+(i*31)%94)+'%');star.style.setProperty('--y',(8+(i*17)%85)+'%');star.style.setProperty('--size',(2+i%3)+'px');star.style.setProperty('--duration',(4+i%5)+'s');star.style.setProperty('--delay',(-i*.37)+'s');$('skySparks').appendChild(star)}
-  window.KBBridge={intro,refresh:render,snapshot(){return phase===4&&souvenir?souvenir:checkoutSnapshot()},choose(index){if(index>=0&&index<model.products.length)quantities[index]=model.limitQuantity(quantities,index,Math.max(1,quantities[index]));begin()}};
+  window.KBBridge={intro,openTrackedSouvenir,refresh:render,snapshot(){return phase===4&&souvenir?souvenir:checkoutSnapshot()},choose(index){if(index>=0&&index<model.products.length)quantities[index]=model.limitQuantity(quantities,index,Math.max(1,quantities[index]));begin()}};
   render();
   addEventListener('hashchange',syncSouvenirLocation);
   addEventListener('pageshow',syncSouvenirLocation);

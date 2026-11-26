@@ -183,7 +183,7 @@
     context.fillStyle = '#ffe7bc';
     window.KBMeritCard.wrap(context, data.items || '', 565).slice(0, 3)
       .forEach((line, i) => center(line, 1066 + i * 27, 565));
-    center('ธูปรวม ' + data.incense.toLocaleString('th-TH') + ' ชุด', 1164, 560);
+    if (Number.isFinite(data.incense)) center('ธูปรวม ' + data.incense.toLocaleString('th-TH') + ' ชุด', 1164, 560);
     context.font = '400 16px "KB Prompt"';
     center('kaanboon.github.io/kaanboonpimpa', 1202, 560);
     if (data.preview) {
@@ -365,7 +365,7 @@
       const voiceDuration = duration - intro - outro;
       if (signal.aborted) return;
       const data = { ...window.KBBridge.snapshot(), festival: window.KBFestival?.current() };
-      const showName = $('shareShowName').checked;
+      const showName = data.fromTracking || $('shareShowName').checked;
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
@@ -431,12 +431,14 @@
       if (error.name !== 'AbortError') progress.textContent = 'แชร์ไม่สำเร็จ กดดาวน์โหลดแล้วเลือกส่งจากเครื่องได้';
     }
   });
-  window.addEventListener('kb:order-saved', () => {
+  function resetVideo() {
     activeJob?.abort('');
     $('shareShowName').checked = false;
     clearResult();
     progress.textContent = '';
-  });
+  }
+  window.addEventListener('kb:order-saved', resetVideo);
+  window.addEventListener('kb:tracked-souvenir', resetVideo);
   function refreshVideoName() {
     if (activeJob) activeJob.abort('เปลี่ยนชื่อที่แสดงแล้ว กดสร้างวิดีโอใหม่');
     clearResult();
